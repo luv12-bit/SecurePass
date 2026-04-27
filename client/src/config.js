@@ -3,8 +3,8 @@
  */
 
 const CONFIG = {
-  // API base URL - Port 5001 is used to avoid conflicts with ghost processes on 5000
-  API_BASE_URL: 'http://localhost:5001/api',
+  // API base URL - Port 5000 is required for the assignment
+  API_BASE_URL: 'http://localhost:5000/api',
   
   // Storage keys
   TOKEN_KEY: 'securepass_token',
