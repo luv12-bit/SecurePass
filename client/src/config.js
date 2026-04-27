@@ -3,8 +3,8 @@
  */
 
 const CONFIG = {
-  // API base URL - Port 5000 is required for the assignment
-  API_BASE_URL: 'http://localhost:5000/api',
+  // API base URL - Points to live Render backend
+  API_BASE_URL: 'https://securepass-6vck.onrender.com/api',
   
   // Storage keys
   TOKEN_KEY: 'securepass_token',
