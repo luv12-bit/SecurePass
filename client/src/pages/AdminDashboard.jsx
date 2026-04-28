@@ -27,46 +27,28 @@ const AdminDashboard = () => {
 
   const handleExportCSV = async () => {
     try {
-      toast.loading('Preparing CSV...', { id: 'csv' });
-      // Fetch all visitors
       const res = await apiClient.get('/visitors');
       const visitors = res.data.data;
       
-      if (visitors.length === 0) {
-        toast.error('No data to export', { id: 'csv' });
-        return;
+      let csvContent = "data:text/csv;charset=utf-8,";
+      csvContent += "Name,Email,Purpose,Status\n";
+      
+      for (let i = 0; i < visitors.length; i++) {
+        let v = visitors[i];
+        csvContent += v.name + "," + v.email + "," + v.purpose + "," + v.status + "\n";
       }
-
-      // Convert to CSV string
-      const headers = ['Name', 'Email', 'Purpose', 'Status', 'Date'];
-      const csvRows = [headers.join(',')];
       
-      visitors.forEach(v => {
-        const row = [
-          `"${v.name}"`,
-          `"${v.email}"`,
-          `"${v.purpose}"`,
-          `"${v.status}"`,
-          `"${new Date(v.createdAt).toLocaleDateString()}"`
-        ];
-        csvRows.push(row.join(','));
-      });
+      var encodedUri = encodeURI(csvContent);
+      var link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "visitors.csv");
+      document.body.appendChild(link);
+      link.click();
       
-      const csvData = csvRows.join('\n');
-      const blob = new Blob([csvData], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.setAttribute('hidden', '');
-      a.setAttribute('href', url);
-      a.setAttribute('download', `visitors_export_${Date.now()}.csv`);
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      
-      toast.success('Export downloaded!', { id: 'csv' });
+      alert('Exported!');
     } catch (err) {
-      console.error('Export error', err);
-      toast.error('Export failed', { id: 'csv' });
+      console.log('Error', err);
+      alert('Failed to export');
     }
   };
 

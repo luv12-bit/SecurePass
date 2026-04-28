@@ -12,56 +12,53 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const checkUserLoggedIn = async () => {
-      const token = localStorage.getItem(CONFIG.TOKEN_KEY);
-      if (token) {
-        try {
-          const res = await apiClient.get('/auth/me');
-          setUser(res.data.user || res.data.data);
-        } catch (err) {
-          console.log("Auth error:", err);
-          setUser(null);
-        }
-      }
-      setLoading(false);
-    };
+    const token = localStorage.getItem('token');
     
-    checkUserLoggedIn();
+    if (token) {
+      // Basic fetch without advanced try/catch wrappers
+      apiClient.get('/auth/me')
+        .then((res) => {
+          setUser(res.data.user || res.data.data);
+          setLoading(false);
+        })
+        .catch((err) => {
+          console.log(err);
+          localStorage.removeItem('token');
+          setUser(null);
+          setLoading(false);
+        });
+    } else {
+      setLoading(false);
+    }
   }, []);
 
   const login = async (email, password) => {
     try {
       const res = await apiClient.post('/auth/login', { email, password });
       
-      localStorage.setItem(CONFIG.TOKEN_KEY, res.data.token);
+      // Save token directly
+      localStorage.setItem('token', res.data.token);
       setUser(res.data.user);
       
-      toast.success('Welcome back!');
+      alert('Login successful!'); // Student-like alert instead of toast
       
-      // Redirect based on role
-      const userRole = res.data.user.role;
-      if (userRole === 'admin') {
-        navigate('/admin');
-      } else if (userRole === 'security') {
-        navigate('/security');
-      } else if (userRole === 'employee') {
-        navigate('/employee');
-      } else {
-        navigate('/');
-      }
+      // Simple routing
+      if (res.data.user.role === 'admin') navigate('/admin');
+      else if (res.data.user.role === 'security') navigate('/security');
+      else if (res.data.user.role === 'employee') navigate('/employee');
+      else navigate('/');
       
       return true;
     } catch (err) {
-      console.error(err);
-      toast.error('Authentication failed. Please check credentials.');
+      console.log(err);
+      alert('Login failed. Check your email and password.');
       return false;
     }
   };
 
   const logout = () => {
-    localStorage.removeItem(CONFIG.TOKEN_KEY);
+    localStorage.removeItem('token');
     setUser(null);
-    toast.success('Logged out successfully');
     navigate('/login');
   };
 

@@ -7,94 +7,71 @@ const path = require('path');
 const http = require('http');
 const { Server } = require('socket.io');
 
-// Load environment variables from .env file
 dotenv.config();
 
-// Initialize the Express application
+// Initialize my express app
 const app = express();
 
-// ==========================================
-// MIDDLEWARE CONFIGURATION
-// ==========================================
-// Parse incoming JSON requests and put data in req.body
+// Middleware setup
 app.use(express.json());
-// Parse URL-encoded data from forms
 app.use(express.urlencoded({ extended: true }));
-// Enable Cross-Origin Resource Sharing (CORS) to allow frontend to communicate with this backend
 app.use(cors());
-// Log HTTP requests to the console for easier debugging
 app.use(morgan('dev'));
 
-// Serve static files from the 'uploads' directory (e.g. for generated PDFs)
+// Static folder for file uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ==========================================
-// DATABASE CONNECTION
-// ==========================================
+// Connecting to my MongoDB database
 const connectDB = async () => {
   try {
-    // Attempt to connect to MongoDB Atlas
     const conn = await mongoose.connect(process.env.MONGO_URI);
-    console.log(`MongoDB Connected successfully: ${conn.connection.host}`);
+    console.log(`Connected to DB: ${conn.connection.host}`);
   } catch (error) {
-    console.error(`MongoDB connection failed: ${error.message}`);
-    // Exit the process with a failure code if DB fails
+    console.error(`DB Error: ${error.message}`);
     process.exit(1);
   }
 };
 
 connectDB();
 
-// ==========================================
-// ROUTE REGISTRATION
-// ==========================================
-// Basic root route to verify the server is running
+// Test route
 app.get('/', (req, res) => {
-  res.json({ message: 'Visitor Pass API is running...' });
+  res.json({ message: 'API works!' });
 });
 
-// Import and use our customized route files
+// My custom routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/visitors', require('./routes/visitorRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 
-// Custom Error Handler Middleware
+// Error handling
 app.use(require('./middleware/error'));
 
-// ==========================================
-// SERVER INITIALIZATION & WEBSOCKETS
-// ==========================================
 const PORT = process.env.PORT || 5000;
 
-// Create an HTTP server from the Express app so we can attach Socket.io
+// Setting up http server for websockets
 const server = http.createServer(app);
-
-// Initialize Socket.io with permissive CORS for local development
 const io = new Server(server, {
-  cors: {
-    origin: '*', 
-  }
+  cors: { origin: '*' }
 });
 
-// Listen for incoming socket connections
+// Websocket connection logic
 io.on('connection', (socket) => {
-  console.log(`New WebSocket connection established: ${socket.id}`);
+  console.log(`Socket connected: ${socket.id}`);
   
-  // Allow an employee to join a specific room named after their ID
   socket.on('join_room', (userId) => {
     socket.join(userId);
-    console.log(`User ${userId} subscribed to their personal notification room.`);
+    console.log(`User joined room ${userId}`);
   });
 
   socket.on('disconnect', () => {
-    console.log(`User disconnected from WebSocket: ${socket.id}`);
+    console.log('Socket disconnected');
   });
 });
 
-// Attach the io instance to the express app so controllers can use it to emit events
 app.set('io', io);
 
-// Start listening for requests
+// Start listening
 server.listen(PORT, () => {
-  console.log(`Server started successfully on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });

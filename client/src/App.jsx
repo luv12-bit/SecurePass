@@ -11,7 +11,7 @@ import EmployeeDashboard from './pages/EmployeeDashboard';
 import PassView from './pages/PassView';
 import Sidebar from './components/Sidebar';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
+import { Navigate } from 'react-router-dom';
 
 const AppContent = () => {
   const { user, loading } = useAuth();
@@ -30,20 +30,16 @@ const AppContent = () => {
           <Route path="/visitor-register" element={<VisitorRegistration />} />
           <Route path="/pass/:id" element={<PassView />} />
           
-          {/* Protected Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/users" element={<AdminDashboard />} />
-            <Route path="/admin/settings" element={<AdminDashboard />} />
-          </Route>
-          <Route element={<ProtectedRoute allowedRoles={['security', 'admin']} />}>
-            <Route path="/security" element={<SecurityDashboard />} />
-            <Route path="/security/logs" element={<SecurityDashboard />} />
-          </Route>
-          <Route element={<ProtectedRoute allowedRoles={['employee', 'admin']} />}>
-            <Route path="/employee" element={<EmployeeDashboard />} />
-            <Route path="/employee/invites" element={<EmployeeDashboard />} />
-          </Route>
+          {/* Basic Protected Routes */}
+          <Route path="/admin" element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/login" />} />
+          <Route path="/admin/users" element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/login" />} />
+          <Route path="/admin/settings" element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/login" />} />
+          
+          <Route path="/security" element={user?.role === 'security' || user?.role === 'admin' ? <SecurityDashboard /> : <Navigate to="/login" />} />
+          <Route path="/security/logs" element={user?.role === 'security' || user?.role === 'admin' ? <SecurityDashboard /> : <Navigate to="/login" />} />
+          
+          <Route path="/employee" element={user?.role === 'employee' || user?.role === 'admin' ? <EmployeeDashboard /> : <Navigate to="/login" />} />
+          <Route path="/employee/invites" element={user?.role === 'employee' || user?.role === 'admin' ? <EmployeeDashboard /> : <Navigate to="/login" />} />
         </Routes>
       </main>
     </div>

@@ -1,38 +1,10 @@
 # SecurePass - Visitor Management System
 
-SecurePass is a modern, full-stack digital visitor management system built with the MERN stack. It replaces traditional paper logbooks with a secure, automated digital check-in process, complete with QR code scanning, real-time WebSocket notifications, and automated email/SMS alerts.
+# Assignment 9: SecurePass MERN Application
+
+This is my submission for Assignment 9. It is a full-stack Visitor Management System built using the MERN stack (MongoDB, Express, React, Node.js). 
 
 ## Features
-- **Role-Based Access Control:** Distinct dashboards for Admin, Employee (Host), and Security Personnel.
-- **Pre-Registration:** Visitors can self-register or be pre-registered by employees.
-- **QR Code Entry:** Security personnel use the built-in HTML5 camera scanner to check visitors in/out instantly.
-- **Real-Time Notifications:** Hosts receive instant WebSocket notifications when their visitor arrives.
-- **Automated Alerts:** Approved visitors receive their secure pass via Email (Nodemailer) and SMS (Twilio).
-- **Export Data:** Admins can export visitor logs to CSV directly from the dashboard.
-
-## Technology Stack
-- **Frontend:** React.js, React Router, HTML5 QR Scanner, Recharts
-- **Backend:** Node.js, Express.js, Socket.io
-- **Database:** MongoDB Atlas, Mongoose
-- **Authentication:** JWT (JSON Web Tokens)
-
-## Getting Started
-
-### Prerequisites
-- Node.js installed on your machine
-- MongoDB Atlas account (or local MongoDB instance)
-
-### Installation
-
-1. **Clone the repository** (if applicable) or navigate to the project directory.
-
-2. **Install Backend Dependencies:**
-   \`\`\`bash
-   cd server
-   npm install
-   \`\`\`
-
-3. **Install Frontend Dependencies:**
    \`\`\`bash
    cd ../client
    npm install

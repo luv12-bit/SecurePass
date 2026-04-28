@@ -12,51 +12,28 @@ const SecurityDashboard = () => {
 
   useEffect(() => {
     if (isScanning && !scannerRef.current) {
-      scannerRef.current = new Html5QrcodeScanner("reader", { 
-        fps: 10, 
-        qrbox: { width: 250, height: 250 } 
-      }, false);
+      // Basic scanner setup
+      const scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+      scannerRef.current = scanner;
 
-      scannerRef.current.render(onScanSuccess, (err) => {
-        // ignore errors for missing frames
+      scanner.render((text) => {
+        setIsScanning(false);
+        scanner.clear();
+        
+        apiClient.post('/visitors/checkin', { qrCode: text })
+          .then(() => alert('Check-in Successful!'))
+          .catch((err) => {
+            if (err.response?.data?.message?.includes('already checked in')) {
+              apiClient.post('/visitors/checkout', { qrCode: text })
+                .then(() => alert('Check-out Successful!'))
+                .catch(() => alert('Checkout failed'));
+            } else {
+              alert('Invalid Pass');
+            }
+          });
       });
     }
-
-    return () => {
-      if (scannerRef.current) {
-        scannerRef.current.clear().catch(err => console.error("Scanner error", err));
-        scannerRef.current = null;
-      }
-    };
   }, [isScanning]);
-
-  const onScanSuccess = async (decodedText) => {
-    setIsScanning(false);
-    
-    if (scannerRef.current) {
-      await scannerRef.current.clear();
-      scannerRef.current = null;
-    }
-
-    try {
-      // First try to check in
-      try {
-        await apiClient.post('/visitors/checkin', { qrCode: decodedText });
-        toast.success('Check-in Successful!');
-      } catch (err) {
-        // If already checked in, try checking out
-        if (err.response?.data?.message?.includes('already checked in')) {
-          await apiClient.post('/visitors/checkout', { qrCode: decodedText });
-          toast.success('Check-out Successful!');
-        } else {
-          throw err;
-        }
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error(err.response?.data?.message || 'Invalid Pass');
-    }
-  };
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px' }}>
@@ -127,23 +104,6 @@ const SecurityDashboard = () => {
           </div>
         </div>
       </div>
-
-      <style>{`
-        #reader { border: none !important; background: transparent !important; }
-        #reader__dashboard_section_fa { display: none !important; }
-        #reader__dashboard_section_csr { margin-bottom: 20px !important; }
-        #reader__dashboard_section_csr button {
-          background: var(--primary) !important; color: white !important;
-          border-radius: 8px !important; padding: 8px 16px !important; border: none !important; cursor: pointer;
-        }
-        #reader__camera_selection {
-          background: #1e293b !important; color: white !important; padding: 10px !important;
-          border-radius: 8px !important; width: 100% !important; max-width: 300px; margin-bottom: 15px;
-        }
-        #reader__scan_region { border-radius: 12px !important; overflow: hidden !important; }
-        #reader video { border-radius: 12px !important; object-fit: cover !important; }
-        #reader span { color: white !important; }
-      `}</style>
     </div>
   );
 };
