@@ -55,8 +55,8 @@ const Register = () => {
           }}>
             <UserPlus color="white" size={32} />
           </div>
-          <h2>Create Account</h2>
-          <p style={{ color: 'var(--text-muted)' }}>Join SecurePass management team</p>
+          <h2>Start your 14-day free trial</h2>
+          <p style={{ color: 'var(--text-muted)' }}>No credit card required. Upgrade your lobby today.</p>
         </div>
 
         <form onSubmit={handleSubmit}>

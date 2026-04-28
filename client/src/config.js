@@ -3,8 +3,8 @@
  */
 
 const CONFIG = {
-  // API base URL - Points to live Render backend
-  API_BASE_URL: 'https://securepass-6vck.onrender.com/api',
+  // Use localhost for testing the new Socket.io features locally
+  API_BASE_URL: 'http://localhost:5000/api',
   
   // Storage keys
   TOKEN_KEY: 'securepass_token',

@@ -1,18 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { UserPlus, CheckCircle, ArrowLeft } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
+import * as yup from 'yup';
 import apiClient from '../services/api';
 
-/**
- * VisitorRegistration Component
- * Public-facing form for visitors to pre-register.
- */
+// Yup Validation Schema
+const schema = yup.object().shape({
+  name: yup.string().required('Full Name is required'),
+  email: yup.string().email('Must be a valid email').required('Email is required'),
+  phone: yup.string().required('Phone number is required').min(10, 'Phone must be at least 10 digits'),
+  purpose: yup.string().required('Purpose is required'),
+  idType: yup.string().required('ID Type is required'),
+  idNumber: yup.string().required('ID Number is required'),
+  host: yup.string().required('Please select a host'),
+});
+
 const VisitorRegistration = () => {
   const [employees, setEmployees] = useState([]);
   const [isSuccess, setIsSuccess] = useState(false);
   const [visitorId, setVisitorId] = useState(null);
+  const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -25,14 +33,13 @@ const VisitorRegistration = () => {
 
   const navigate = useNavigate();
 
-  // Load employee list for host selection
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
         const res = await apiClient.get('/auth/employees');
         setEmployees(res.data.data);
       } catch (err) {
-        toast.error('Failed to load host list. Please refresh.');
+        toast.error('Failed to load host list.');
       }
     };
     fetchEmployees();
@@ -40,42 +47,47 @@ const VisitorRegistration = () => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    // Clear error when typing
+    if (errors[e.target.name]) {
+      setErrors({ ...errors, [e.target.name]: null });
+    }
   };
 
-  /**
-   * Submit registration form
-   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Basic validation
-    if (!formData.host) {
-      return toast.error('Please select a host employee');
-    }
-
     try {
+      // Validate with Yup
+      await schema.validate(formData, { abortEarly: false });
+      
+      // If validation passes, submit to API
       const res = await apiClient.post('/visitors', formData);
       setVisitorId(res.data.data._id);
       setIsSuccess(true);
       toast.success('Registration successful!');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Registration failed. Try again.');
+      if (err.inner) {
+        // Yup validation errors
+        const validationErrors = {};
+        err.inner.forEach(e => {
+          validationErrors[e.path] = e.message;
+        });
+        setErrors(validationErrors);
+        toast.error('Please fix the errors in the form');
+      } else {
+        // API errors
+        console.error(err);
+        toast.error(err.response?.data?.message || 'Registration failed');
+      }
     }
   };
 
-  // Success View: Displayed after successful registration
   if (isSuccess) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', padding: '20px' }}>
-        <motion.div 
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="glass" 
-          style={{ padding: '48px', textAlign: 'center', maxWidth: '500px', position: 'relative' }}
-        >
-          <Link to="/" style={{ position: 'absolute', top: '20px', left: '20px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.9rem' }}>
-            <ArrowLeft size={16} />
-            Back
+        <div className="glass" style={{ padding: '48px', textAlign: 'center', maxWidth: '500px', position: 'relative' }}>
+          <Link to="/" style={{ position: 'absolute', top: '20px', left: '20px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.9rem', textDecoration: 'none' }}>
+            <ArrowLeft size={16} /> Back
           </Link>
           <CheckCircle size={80} color="var(--success)" style={{ marginBottom: '24px' }} />
           <h2 style={{ marginBottom: '16px' }}>Registration Complete</h2>
@@ -83,32 +95,22 @@ const VisitorRegistration = () => {
             Your request has been sent to the host. Once approved, you will receive your digital pass link.
           </p>
           <div style={{ display: 'flex', gap: '12px' }}>
-            <button 
-              onClick={() => navigate(`/pass/${visitorId}`)} 
-              className="btn-primary" 
-              style={{ flex: 1 }}
-            >
+            <button onClick={() => navigate(`/pass/${visitorId}`)} className="btn-primary" style={{ flex: 1 }}>
               View Pass Status
             </button>
-            <button 
-              onClick={() => navigate('/')} 
-              className="glass" 
-              style={{ flex: 1 }}
-            >
+            <button onClick={() => navigate('/')} className="glass" style={{ flex: 1, padding: '12px' }}>
               Back to Home
             </button>
           </div>
-        </motion.div>
+        </div>
       </div>
     );
   }
 
-  // Form View: Main registration form
   return (
     <div style={{ padding: '40px 20px', minHeight: '100vh', position: 'relative' }}>
-      <Link to="/" style={{ position: 'absolute', top: '40px', left: '40px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '1rem' }}>
-        <ArrowLeft size={18} />
-        Back to Home
+      <Link to="/" style={{ position: 'absolute', top: '40px', left: '40px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '1rem', textDecoration: 'none' }}>
+        <ArrowLeft size={18} /> Back to Home
       </Link>
       
       <header style={{ textAlign: 'center', marginBottom: '40px' }}>
@@ -116,65 +118,63 @@ const VisitorRegistration = () => {
         <p style={{ color: 'var(--text-muted)' }}>Fill in your details for a digital entry pass</p>
       </header>
 
-      <motion.div 
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="glass" 
-        style={{ maxWidth: '800px', margin: '0 auto', padding: '40px' }}
-      >
+      <div className="glass" style={{ maxWidth: '800px', margin: '0 auto', padding: '40px' }}>
         <form onSubmit={handleSubmit}>
-          <div className="responsive-grid" style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '24px' }}>
             <div>
-              <label className="label">Full Name</label>
-              <input name="name" className="input-field" placeholder="Enter your name" required onChange={handleChange} />
+              <label style={{ display: 'block', marginBottom: '8px' }}>Full Name</label>
+              <input name="name" className="input-field" placeholder="Enter your name" onChange={handleChange} />
+              {errors.name && <span style={{ color: 'var(--error)', fontSize: '0.8rem' }}>{errors.name}</span>}
             </div>
             <div>
-              <label className="label">Email Address</label>
-              <input name="email" type="email" className="input-field" placeholder="email@example.com" required onChange={handleChange} />
+              <label style={{ display: 'block', marginBottom: '8px' }}>Email Address</label>
+              <input name="email" className="input-field" placeholder="email@example.com" onChange={handleChange} />
+              {errors.email && <span style={{ color: 'var(--error)', fontSize: '0.8rem' }}>{errors.email}</span>}
             </div>
             <div>
-              <label className="label">Phone Number</label>
-              <input name="phone" className="input-field" placeholder="+91 00000 00000" required onChange={handleChange} />
+              <label style={{ display: 'block', marginBottom: '8px' }}>Phone Number</label>
+              <input name="phone" className="input-field" placeholder="Phone Number" onChange={handleChange} />
+              {errors.phone && <span style={{ color: 'var(--error)', fontSize: '0.8rem' }}>{errors.phone}</span>}
             </div>
             <div>
-              <label className="label">Purpose of Visit</label>
-              <input name="purpose" className="input-field" placeholder="e.g., Business Meeting" required onChange={handleChange} />
+              <label style={{ display: 'block', marginBottom: '8px' }}>Purpose of Visit</label>
+              <input name="purpose" className="input-field" placeholder="e.g., Business Meeting" onChange={handleChange} />
+              {errors.purpose && <span style={{ color: 'var(--error)', fontSize: '0.8rem' }}>{errors.purpose}</span>}
             </div>
             <div>
-              <label className="label">ID Type</label>
-              <select name="idType" className="input-field" required onChange={handleChange}>
+              <label style={{ display: 'block', marginBottom: '8px' }}>ID Type</label>
+              <select name="idType" className="input-field" onChange={handleChange} value={formData.idType}>
                 <option value="Aadhaar">Aadhaar</option>
                 <option value="PAN">PAN</option>
                 <option value="Passport">Passport</option>
                 <option value="Driving License">Driving License</option>
               </select>
+              {errors.idType && <span style={{ color: 'var(--error)', fontSize: '0.8rem' }}>{errors.idType}</span>}
             </div>
             <div>
-              <label className="label">ID Number</label>
-              <input name="idNumber" className="input-field" placeholder="Enter ID number" required onChange={handleChange} />
+              <label style={{ display: 'block', marginBottom: '8px' }}>ID Number</label>
+              <input name="idNumber" className="input-field" placeholder="Enter ID number" onChange={handleChange} />
+              {errors.idNumber && <span style={{ color: 'var(--error)', fontSize: '0.8rem' }}>{errors.idNumber}</span>}
             </div>
           </div>
 
           <div style={{ marginBottom: '32px' }}>
-            <label className="label">Select Host (Whom are you meeting?)</label>
-            <select name="host" className="input-field" required onChange={handleChange}>
+            <label style={{ display: 'block', marginBottom: '8px' }}>Select Host (Whom are you meeting?)</label>
+            <select name="host" className="input-field" onChange={handleChange}>
               <option value="">Choose an employee...</option>
               {employees.map(emp => (
                 <option key={emp._id} value={emp._id}>{emp.name} ({emp.email})</option>
               ))}
             </select>
+            {errors.host && <span style={{ color: 'var(--error)', fontSize: '0.8rem' }}>{errors.host}</span>}
           </div>
 
-          <button type="submit" className="btn-primary" style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}>
+          <button type="submit" style={{ width: '100%', padding: '15px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', fontSize: '1rem' }}>
             <UserPlus size={20} />
             Submit Registration
           </button>
         </form>
-      </motion.div>
-      
-      <style>{`
-        .label { display: block; margin-bottom: 8px; font-size: 0.9rem; font-weight: 600; color: var(--text-muted); }
-      `}</style>
+      </div>
     </div>
   );
 };

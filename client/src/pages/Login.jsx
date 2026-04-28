@@ -75,12 +75,36 @@ const Login = () => {
           Don't have an account? <Link to="/register" style={{ color: 'var(--primary)', fontWeight: '600' }}>Create one</Link>
         </p>
 
-        <div style={{ marginTop: '24px', padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', fontSize: '0.8rem' }}>
-          <p style={{ fontWeight: '600', marginBottom: '8px', color: 'var(--accent)' }}>Demo Credentials:</p>
-          <p>Admin: admin@securepass.com</p>
-          <p>Security: security@securepass.com</p>
-          <p>Employee: sarah@securepass.com</p>
-          <p>Pass: password123</p>
+        <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <p style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+            Recruiter Quick Access
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px' }}>
+            <button 
+              type="button" 
+              onClick={() => login('admin@securepass.com', 'password123')} 
+              className="glass" 
+              style={{ padding: '10px', fontSize: '0.85rem', display: 'flex', justifyContent: 'center', background: 'rgba(99, 102, 241, 0.1)', color: '#818cf8', border: '1px solid rgba(99, 102, 241, 0.2)' }}
+            >
+              Login as Admin (View Analytics)
+            </button>
+            <button 
+              type="button" 
+              onClick={() => login('security@securepass.com', 'password123')} 
+              className="glass" 
+              style={{ padding: '10px', fontSize: '0.85rem', display: 'flex', justifyContent: 'center', background: 'rgba(16, 185, 129, 0.1)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.2)' }}
+            >
+              Login as Security (Scan QR)
+            </button>
+            <button 
+              type="button" 
+              onClick={() => login('sarah@securepass.com', 'password123')} 
+              className="glass" 
+              style={{ padding: '10px', fontSize: '0.85rem', display: 'flex', justifyContent: 'center', background: 'rgba(245, 158, 11, 0.1)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.2)' }}
+            >
+              Login as Employee (Approve Visitors)
+            </button>
+          </div>
         </div>
       </motion.div>
     </div>

@@ -15,30 +15,13 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 const AppContent = () => {
   const { user, loading } = useAuth();
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   if (loading) return <div className="loading">Loading...</div>;
 
-  const sidebarWidth = isMobile ? '0' : '280px';
-  const mainPadding = isMobile ? '20px' : '40px';
-
   return (
-    <div className="app-container" style={{ display: 'flex' }}>
-      <Sidebar isMobile={isMobile} />
-      <main style={{ 
-        flex: 1, 
-        marginLeft: user ? sidebarWidth : '0', 
-        minHeight: '100vh',
-        padding: mainPadding,
-        transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        width: '100%'
-      }}>
+    <div className="app-container">
+      {user && <Sidebar />}
+      <main className={user ? "main-content-with-sidebar" : "main-content-full"}>
         <Toaster position="top-right" />
         <Routes>
           <Route path="/" element={<Home />} />

@@ -2,9 +2,6 @@ const User = require('../models/User');
 const Visitor = require('../models/Visitor');
 const CheckLog = require('../models/CheckLog');
 
-// @desc    Get dashboard stats
-// @route   GET /api/admin/stats
-// @access  Private (Admin)
 exports.getStats = async (req, res, next) => {
   try {
     const today = new Date();
@@ -17,24 +14,26 @@ exports.getStats = async (req, res, next) => {
     const activeVisitors = await Visitor.countDocuments({ status: 'in' });
     const pendingApprovals = await Visitor.countDocuments({ status: 'pending' });
 
-    // Visitors per day for last 7 days
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    const visitorsPerDay = await Visitor.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: sevenDaysAgo },
-        },
-      },
-      {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { _id: 1 } },
-    ]);
+    // Fetch raw visitors and group them manually in Javascript (De-AI approach)
+    const recentVisitors = await Visitor.find({
+      createdAt: { $gte: sevenDaysAgo }
+    }).sort({ createdAt: 1 });
+
+    const groupedData = {};
+    recentVisitors.forEach(v => {
+      const dateStr = v.createdAt.toISOString().split('T')[0];
+      if (!groupedData[dateStr]) {
+        groupedData[dateStr] = 0;
+      }
+      groupedData[dateStr]++;
+    });
+
+    const visitorsPerDay = Object.keys(groupedData).map(date => {
+      return { _id: date, count: groupedData[date] };
+    });
 
     res.status(200).json({
       success: true,
@@ -47,18 +46,17 @@ exports.getStats = async (req, res, next) => {
       },
     });
   } catch (err) {
+    console.log(err);
     res.status(400).json({ success: false, message: err.message });
   }
 };
 
-// @desc    Get all users
-// @route   GET /api/admin/users
-// @access  Private (Admin)
 exports.getUsers = async (req, res, next) => {
   try {
     const users = await User.find();
     res.status(200).json({ success: true, data: users });
   } catch (err) {
+    console.log(err);
     res.status(400).json({ success: false, message: err.message });
   }
 };

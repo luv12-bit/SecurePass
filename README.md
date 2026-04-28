@@ -1,52 +1,87 @@
 # SecurePass - Visitor Management System
 
-A premium, MERN-stack based digital visitor management solution designed for modern organizations. SecurePass replaces outdated manual registers with a secure, QR-code based digital pass system.
+SecurePass is a modern, full-stack digital visitor management system built with the MERN stack. It replaces traditional paper logbooks with a secure, automated digital check-in process, complete with QR code scanning, real-time WebSocket notifications, and automated email/SMS alerts.
 
-## 🚀 Features
+## Features
+- **Role-Based Access Control:** Distinct dashboards for Admin, Employee (Host), and Security Personnel.
+- **Pre-Registration:** Visitors can self-register or be pre-registered by employees.
+- **QR Code Entry:** Security personnel use the built-in HTML5 camera scanner to check visitors in/out instantly.
+- **Real-Time Notifications:** Hosts receive instant WebSocket notifications when their visitor arrives.
+- **Automated Alerts:** Approved visitors receive their secure pass via Email (Nodemailer) and SMS (Twilio).
+- **Export Data:** Admins can export visitor logs to CSV directly from the dashboard.
 
-- **Role-Based Dashboards**: Tailored experiences for Admins, Security, and Employees.
-- **Pre-Registration**: Visitors can register online before their visit.
-- **One-Click Approval**: Employees receive real-time requests and can approve or reject with one click.
-- **QR Pass System**: Secure digital passes generated for every approved visitor.
-- **Real-time Scanning**: Security portal with integrated QR scanner for paperless check-in/out.
-- **Analytics Dashboard**: Comprehensive stats and traffic trends for administrators.
-- **PDF Export**: Professional visitor badges available for download.
+## Technology Stack
+- **Frontend:** React.js, React Router, HTML5 QR Scanner, Recharts
+- **Backend:** Node.js, Express.js, Socket.io
+- **Database:** MongoDB Atlas, Mongoose
+- **Authentication:** JWT (JSON Web Tokens)
 
-## 🛠️ Tech Stack
+## Getting Started
 
-- **Frontend**: React (Vite), Framer Motion, Recharts, Lucide Icons.
-- **Backend**: Node.js, Express.js, JWT Authentication.
-- **Database**: MongoDB (Mongoose).
-- **Utilities**: QRCode.js, PDFKit, HTML5-QRCode.
+### Prerequisites
+- Node.js installed on your machine
+- MongoDB Atlas account (or local MongoDB instance)
 
-## 📦 Installation & Setup
+### Installation
 
-### 1. Clone the repository
-```bash
-git clone <repo-url>
-cd visitor-pass-system
-```
+1. **Clone the repository** (if applicable) or navigate to the project directory.
 
-### 2. Backend Setup
-```bash
-cd server
-npm install
-```
-- Create a `.env` file based on the provided template.
-- Run `npm run seed` to populate initial users.
-- Start the server: `npm run dev`
+2. **Install Backend Dependencies:**
+   \`\`\`bash
+   cd server
+   npm install
+   \`\`\`
 
-### 3. Frontend Setup
-```bash
-cd client
-npm install
-npm run dev
-```
+3. **Install Frontend Dependencies:**
+   \`\`\`bash
+   cd ../client
+   npm install
+   \`\`\`
 
-## 🔐 Demo Credentials
-- **Admin**: `admin@securepass.com` / `password123`
-- **Security**: `security@securepass.com` / `password123`
-- **Employee**: `sarah@securepass.com` / `password123`
+### Environment Setup
 
----
-Built with ❤️ for Assignment 9.
+**1. Backend `.env` (in `server/` directory):**
+\`\`\`env
+NODE_ENV=development
+PORT=5000
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret_key
+# Email Notifications
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your_email@gmail.com
+EMAIL_PASS=your_app_password
+# SMS Notifications (Optional)
+TWILIO_ACCOUNT_SID=your_twilio_sid
+TWILIO_AUTH_TOKEN=your_twilio_token
+TWILIO_PHONE_NUMBER=your_twilio_number
+\`\`\`
+
+**2. Frontend Configuration (in `client/src/config.js`):**
+Make sure the `API_BASE_URL` points to your backend. By default, it is set to `http://localhost:5000/api`.
+
+### Running the Application
+
+1. **Start the Backend Server:**
+   \`\`\`bash
+   cd server
+   npm start
+   \`\`\`
+   The backend should run on `http://localhost:5000`.
+
+2. **Start the Frontend Development Server:**
+   \`\`\`bash
+   cd client
+   npm run dev
+   \`\`\`
+   The frontend will usually start on `http://localhost:5173`.
+
+## Usage & Testing
+1. **Register as an Employee/Security/Admin** or use seeded data if available.
+2. **Register a Visitor** from the public registration portal.
+3. **Employee Dashboard:** Log in as the host to approve the visitor. You will receive real-time alerts if connected.
+4. **Download Pass:** The visitor will receive an email with a link to download their QR Code pass.
+5. **Security Dashboard:** Log in as security and use the camera to scan the visitor's QR code to log their check-in and check-out times.
+
+## Disclaimer
+This project is an academic submission designed to demonstrate an understanding of full-stack MERN development, WebSockets, and third-party API integration.

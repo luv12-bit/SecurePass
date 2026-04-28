@@ -2,22 +2,28 @@ const Visitor = require('../models/Visitor');
 const CheckLog = require('../models/CheckLog');
 const path = require('path');
 const { generateQR, generatePassPDF } = require('../utils/passGenerator');
+const sendEmail = require('../utils/sendEmail');
+const sendSMS = require('../utils/sendSMS');
 
-// @desc    Register a new visitor (Pre-registration)
-// @route   POST /api/visitors
-// @access  Public
 exports.registerVisitor = async (req, res, next) => {
   try {
     const visitor = await Visitor.create(req.body);
+    
+    const io = req.app.get('io');
+    if (io && visitor.host) {
+      io.to(visitor.host.toString()).emit('new_visitor', {
+        message: `New visitor registered: ${visitor.name}`,
+        visitor
+      });
+    }
+
     res.status(201).json({ success: true, data: visitor });
   } catch (err) {
+    console.log(err);
     res.status(400).json({ success: false, message: err.message });
   }
 };
 
-// @desc    Get single visitor
-// @route   GET /api/visitors/:id
-// @access  Public
 exports.getVisitor = async (req, res, next) => {
   try {
     const visitor = await Visitor.findById(req.params.id).populate('host', 'name email');
@@ -26,18 +32,15 @@ exports.getVisitor = async (req, res, next) => {
     }
     res.status(200).json({ success: true, data: visitor });
   } catch (err) {
+    console.log(err);
     res.status(400).json({ success: false, message: err.message });
   }
 };
 
-// @desc    Get all visitors (Admin/Security)
-// @route   GET /api/visitors
-// @access  Private
 exports.getVisitors = async (req, res, next) => {
   try {
     let query;
 
-    // If host, only see their visitors
     if (req.user.role === 'employee') {
       query = Visitor.find({ host: req.user.id });
     } else {
@@ -52,29 +55,25 @@ exports.getVisitors = async (req, res, next) => {
       data: visitors,
     });
   } catch (err) {
+    console.log(err);
     res.status(400).json({ success: false, message: err.message });
   }
 };
 
-// @desc    Approve/Reject visitor
-// @route   PUT /api/visitors/:id/status
-// @access  Private (Employee/Admin)
 exports.updateStatus = async (req, res, next) => {
   try {
     const { status } = req.body;
 
-    let visitor = await Visitor.findById(req.params.id);
+    let visitor = await Visitor.findById(req.params.id).populate('host', 'name');
 
     if (!visitor) {
       return res.status(404).json({ success: false, message: 'Visitor not found' });
     }
 
-    // Make sure user is host
-    if (visitor.host.toString() !== req.user.id && req.user.role !== 'admin') {
+    if (visitor.host._id.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(401).json({ success: false, message: 'Not authorized' });
     }
 
-    // If approved, generate QR code data
     let qrData = '';
     if (status === 'approved') {
       qrData = `VP-${visitor._id}-${Date.now()}`;
@@ -86,18 +85,46 @@ exports.updateStatus = async (req, res, next) => {
       { new: true, runValidators: true }
     );
 
+    if (status === 'approved') {
+      const downloadLink = `http://localhost:5000/api/visitors/${visitor._id}/download`;
+      const message = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+          <h2 style="color: #2563eb;">Pass Approved!</h2>
+          <p>Hi ${visitor.name},</p>
+          <p>Your host, <strong>${visitor.host.name}</strong>, has approved your visit.</p>
+          <p>Please click the button below to download your secure QR Pass. You will need to show this to security upon arrival.</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${downloadLink}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Download Digital Pass</a>
+          </div>
+          <p style="color: #6b7280; font-size: 0.9em;">If you have any questions, please contact your host directly.</p>
+        </div>
+      `;
+      
+      await sendEmail({
+        to: visitor.email,
+        subject: 'Your SecurePass is Ready',
+        html: message
+      });
+      
+      // Also send an SMS notification
+      if (visitor.phone) {
+        await sendSMS({
+          to: visitor.phone,
+          message: `Hi ${visitor.name}, your SecurePass has been approved by ${visitor.host.name}. Download it here: ${downloadLink}`
+        });
+      }
+    }
+
     res.status(200).json({
       success: true,
       data: visitor,
     });
   } catch (err) {
+    console.log(err);
     res.status(400).json({ success: false, message: err.message });
   }
 };
 
-// @desc    Check-in visitor via QR
-// @route   POST /api/visitors/checkin
-// @access  Private (Security)
 exports.checkIn = async (req, res, next) => {
   try {
     const { qrCode } = req.body;
@@ -112,7 +139,6 @@ exports.checkIn = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Visitor not approved' });
     }
 
-    // Check if already in
     const activeLog = await CheckLog.findOne({ visitor: visitor._id, checkOutTime: null });
     if (activeLog) {
       return res.status(400).json({ success: false, message: 'Visitor already checked in' });
@@ -132,13 +158,11 @@ exports.checkIn = async (req, res, next) => {
       data: log,
     });
   } catch (err) {
+    console.log(err);
     res.status(400).json({ success: false, message: err.message });
   }
 };
 
-// @desc    Check-out visitor via QR
-// @route   POST /api/visitors/checkout
-// @access  Private (Security)
 exports.checkOut = async (req, res, next) => {
   try {
     const { qrCode } = req.body;
@@ -166,13 +190,11 @@ exports.checkOut = async (req, res, next) => {
       data: log,
     });
   } catch (err) {
+    console.log(err);
     res.status(400).json({ success: false, message: err.message });
   }
 };
 
-// @desc    Download PDF Pass
-// @route   GET /api/visitors/:id/download
-// @access  Public
 exports.downloadPass = async (req, res, next) => {
   try {
     const visitor = await Visitor.findById(req.params.id).populate('host', 'name');
@@ -188,6 +210,7 @@ exports.downloadPass = async (req, res, next) => {
       res.download(filepath);
     });
   } catch (err) {
+    console.log(err);
     res.status(400).json({ success: false, message: err.message });
   }
 };

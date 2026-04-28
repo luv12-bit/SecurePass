@@ -6,16 +6,11 @@ import CONFIG from '../config';
 
 const AuthContext = createContext();
 
-/**
- * AuthProvider Component
- * Manages global authentication state and user sessions.
- */
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Validate session on mount
   useEffect(() => {
     const checkUserLoggedIn = async () => {
       const token = localStorage.getItem(CONFIG.TOKEN_KEY);
@@ -24,20 +19,16 @@ export const AuthProvider = ({ children }) => {
           const res = await apiClient.get('/auth/me');
           setUser(res.data.user || res.data.data);
         } catch (err) {
-          // api service handles 401 cleaning
+          console.log("Auth error:", err);
           setUser(null);
         }
       }
       setLoading(false);
     };
+    
     checkUserLoggedIn();
   }, []);
 
-  /**
-   * Login handler
-   * @param {string} email 
-   * @param {string} password 
-   */
   const login = async (email, password) => {
     try {
       const res = await apiClient.post('/auth/login', { email, password });
@@ -47,29 +38,31 @@ export const AuthProvider = ({ children }) => {
       
       toast.success('Welcome back!');
       
-      // Dynamic Role-Based Redirect
-      switch (res.data.user.role) {
-        case CONFIG.ROLES.ADMIN: navigate('/admin'); break;
-        case CONFIG.ROLES.SECURITY: navigate('/security'); break;
-        case CONFIG.ROLES.EMPLOYEE: navigate('/employee'); break;
-        default: navigate('/');
+      // Redirect based on role
+      const userRole = res.data.user.role;
+      if (userRole === 'admin') {
+        navigate('/admin');
+      } else if (userRole === 'security') {
+        navigate('/security');
+      } else if (userRole === 'employee') {
+        navigate('/employee');
+      } else {
+        navigate('/');
       }
       
       return true;
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Authentication failed');
+      console.error(err);
+      toast.error('Authentication failed. Please check credentials.');
       return false;
     }
   };
 
-  /**
-   * Logout handler
-   */
   const logout = () => {
     localStorage.removeItem(CONFIG.TOKEN_KEY);
     setUser(null);
-    navigate('/login');
     toast.success('Logged out successfully');
+    navigate('/login');
   };
 
   return (
@@ -80,9 +73,5 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  return useContext(AuthContext);
 };

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import axios from 'axios';
-import { motion } from 'framer-motion';
 import { Download, ArrowLeft, Calendar, User, Building, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
+import apiClient from '../services/api';
+import CONFIG from '../config';
 
 const PassView = () => {
   const { id } = useParams();
@@ -13,36 +13,31 @@ const PassView = () => {
   useEffect(() => {
     const fetchPass = async () => {
       try {
-        const res = await axios.get(`http://localhost:5001/api/visitors/${id}`);
+        const res = await apiClient.get(`/visitors/${id}`);
         setVisitor(res.data.data);
-        setLoading(false);
       } catch (err) {
+        console.error(err);
         toast.error('Pass not found or invalid');
+      } finally {
         setLoading(false);
       }
     };
     fetchPass();
   }, [id]);
 
-  if (loading) return <div className="loading">Loading Pass...</div>;
+  if (loading) return <div>Loading Pass...</div>;
   if (!visitor) return <div style={{ textAlign: 'center', padding: '100px' }}>Pass not found.</div>;
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', padding: '20px' }}>
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="glass" 
-        style={{ padding: '40px', width: '100%', maxWidth: '450px', position: 'relative' }}
-      >
-        <Link to="/" style={{ position: 'absolute', top: '20px', left: '20px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.9rem' }}>
-          <ArrowLeft size={16} />
-          Back
+      <div className="glass" style={{ padding: '40px', width: '100%', maxWidth: '450px', position: 'relative' }}>
+        <Link to="/" style={{ position: 'absolute', top: '20px', left: '20px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.9rem', textDecoration: 'none' }}>
+          <ArrowLeft size={16} /> Back
         </Link>
 
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <ShieldCheck size={48} color="var(--success)" style={{ margin: '0 auto 16px' }} />
-          <h2 style={{ letterSpacing: '-0.02em' }}>Visitor Pass</h2>
+          <h2 style={{ letterSpacing: '-0.02em', marginBottom: '5px' }}>Visitor Pass</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Secure Entry Badge</p>
         </div>
 
@@ -73,35 +68,37 @@ const PassView = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <Calendar size={18} color="var(--primary)" />
             <div>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Date & Time</p>
-              <p style={{ fontSize: '0.9rem' }}>{new Date(visitor.createdAt).toLocaleString()}</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Date & Time</p>
+              <p style={{ fontSize: '0.9rem', margin: 0 }}>{new Date(visitor.createdAt).toLocaleString()}</p>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <Building size={18} color="var(--primary)" />
             <div>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Purpose</p>
-              <p style={{ fontSize: '0.9rem' }}>{visitor.purpose}</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Purpose</p>
+              <p style={{ fontSize: '0.9rem', margin: 0 }}>{visitor.purpose}</p>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <User size={18} color="var(--primary)" />
             <div>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Host</p>
-              <p style={{ fontSize: '0.9rem' }}>{visitor.host?.name || 'N/A'}</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Host</p>
+              <p style={{ fontSize: '0.9rem', margin: 0 }}>{visitor.host?.name || 'N/A'}</p>
             </div>
           </div>
         </div>
 
         <a 
-          href={`http://localhost:5001/api/visitors/${visitor._id}/download`}
+          href={`${CONFIG.API_BASE_URL}/visitors/${visitor._id}/download`}
           className="btn-primary" 
-          style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}
+          style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', textDecoration: 'none' }}
+          target="_blank"
+          rel="noreferrer"
         >
           <Download size={20} />
           Download PDF Badge
         </a>
-      </motion.div>
+      </div>
     </div>
   );
 };
