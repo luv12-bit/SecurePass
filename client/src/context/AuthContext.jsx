@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', res.data.token);
       setUser(res.data.user);
       
-      alert('Login successful!'); // Student-like alert instead of toast
+      toast.success('Login successful!');
       
       // Simple routing
       if (res.data.user.role === 'admin') navigate('/admin');
@@ -51,7 +51,7 @@ export const AuthProvider = ({ children }) => {
       return true;
     } catch (err) {
       console.log(err);
-      alert('Login failed. Check your email and password.');
+      toast.error('Login failed. Check your email and password.');
       return false;
     }
   };

@@ -2,25 +2,14 @@ import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { UserPlus, CheckCircle, ArrowLeft } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
-import * as yup from 'yup';
 import apiClient from '../services/api';
-
-// Yup Validation Schema
-const schema = yup.object().shape({
-  name: yup.string().required('Full Name is required'),
-  email: yup.string().email('Must be a valid email').required('Email is required'),
-  phone: yup.string().required('Phone number is required').min(10, 'Phone must be at least 10 digits'),
-  purpose: yup.string().required('Purpose is required'),
-  idType: yup.string().required('ID Type is required'),
-  idNumber: yup.string().required('ID Number is required'),
-  host: yup.string().required('Please select a host'),
-});
 
 const VisitorRegistration = () => {
   const [employees, setEmployees] = useState([]);
   const [isSuccess, setIsSuccess] = useState(false);
   const [visitorId, setVisitorId] = useState(null);
   const [errors, setErrors] = useState({});
+  const [photo, setPhoto] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -47,36 +36,57 @@ const VisitorRegistration = () => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-    // Clear error when typing
     if (errors[e.target.name]) {
       setErrors({ ...errors, [e.target.name]: null });
     }
   };
 
+  const handleFileChange = (e) => {
+    setPhoto(e.target.files[0]);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Manual validation
+    let validationErrors = {};
+    if (!formData.name) validationErrors.name = 'Full Name is required';
+    if (!formData.email) {
+      validationErrors.email = 'Email is required';
+    } else if (!formData.email.includes('@')) {
+      validationErrors.email = 'Must be a valid email';
+    }
+    if (!formData.phone || formData.phone.length < 10) validationErrors.phone = 'Phone must be at least 10 digits';
+    if (!formData.purpose) validationErrors.purpose = 'Purpose is required';
+    if (!formData.idType) validationErrors.idType = 'ID Type is required';
+    if (!formData.idNumber) validationErrors.idNumber = 'ID Number is required';
+    if (!formData.host) validationErrors.host = 'Please select a host';
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      toast.error('Please fix the errors in the form');
+      return;
+    }
+    
     try {
-      // Validate with Yup
-      await schema.validate(formData, { abortEarly: false });
+      const data = new FormData();
+      Object.keys(formData).forEach(key => data.append(key, formData[key]));
+      if (photo) {
+        data.append('photo', photo);
+      }
+
+      const res = await apiClient.post('/visitors', data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       
-      // If validation passes, submit to API
-      const res = await apiClient.post('/visitors', formData);
       setVisitorId(res.data.data._id);
       setIsSuccess(true);
       toast.success('Registration successful!');
     } catch (err) {
-      if (err.inner) {
-        // Yup validation errors
-        const validationErrors = {};
-        err.inner.forEach(e => {
-          validationErrors[e.path] = e.message;
-        });
-        setErrors(validationErrors);
-        toast.error('Please fix the errors in the form');
+      console.error(err);
+      if (err.response?.data?.errors) {
+        toast.error(err.response.data.errors[0].msg);
       } else {
-        // API errors
-        console.error(err);
         toast.error(err.response?.data?.message || 'Registration failed');
       }
     }
@@ -158,25 +168,29 @@ const VisitorRegistration = () => {
             </div>
           </div>
 
-          <div style={{ marginBottom: '32px' }}>
-            <label style={{ display: 'block', marginBottom: '8px' }}>Select Host (Whom are you meeting?)</label>
-            <select name="host" className="input-field" onChange={handleChange}>
-              <option value="">Choose an employee...</option>
-              {employees.map(emp => (
-                <option key={emp._id} value={emp._id}>{emp.name} ({emp.email})</option>
-              ))}
-            </select>
-            {errors.host && <span style={{ color: 'var(--error)', fontSize: '0.8rem' }}>{errors.host}</span>}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px' }}>Select Host</label>
+              <select name="host" className="input-field" onChange={handleChange}>
+                <option value="">Choose an employee...</option>
+                {employees.map(emp => (
+                  <option key={emp._id} value={emp._id}>{emp.name} ({emp.email})</option>
+                ))}
+              </select>
+              {errors.host && <span style={{ color: 'var(--error)', fontSize: '0.8rem' }}>{errors.host}</span>}
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px' }}>Your Photo</label>
+              <input type="file" accept="image/*" className="input-field" onChange={handleFileChange} />
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '-10px' }}>Upload a clear photo for identification</p>
+            </div>
           </div>
 
-          <button type="submit" style={{ width: '100%', padding: '15px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', fontSize: '1rem' }}>
+          <button type="submit" className="btn-primary" style={{ width: '100%', padding: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', fontSize: '1.1rem' }}>
             <UserPlus size={20} />
             Submit Registration
           </button>
         </form>
       </div>
     </div>
-  );
-};
-
 export default VisitorRegistration;

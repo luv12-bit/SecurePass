@@ -7,7 +7,14 @@ const sendSMS = require('../utils/sendSMS');
 
 exports.registerVisitor = async (req, res, next) => {
   try {
-    const visitor = await Visitor.create(req.body);
+    const visitorData = req.body;
+    
+    // Add photo if uploaded
+    if (req.file) {
+      visitorData.photo = req.file.filename;
+    }
+
+    const visitor = await Visitor.create(visitorData);
     
     const io = req.app.get('io');
     if (io && visitor.host) {
@@ -62,62 +69,59 @@ exports.getVisitors = async (req, res, next) => {
 
 exports.updateStatus = async (req, res, next) => {
   try {
-    const { status } = req.body;
+    const status = req.body.status;
+    let foundVisitor = await Visitor.findById(req.params.id).populate('host', 'name');
 
-    let visitor = await Visitor.findById(req.params.id).populate('host', 'name');
-
-    if (!visitor) {
+    if (!foundVisitor) {
       return res.status(404).json({ success: false, message: 'Visitor not found' });
     }
 
-    if (visitor.host._id.toString() !== req.user.id && req.user.role !== 'admin') {
+    // Checking if the person updating is the host or an admin
+    if (foundVisitor.host._id.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(401).json({ success: false, message: 'Not authorized' });
     }
 
+    // Generate a QR code string if they are approved
     let qrData = '';
     if (status === 'approved') {
-      qrData = `VP-${visitor._id}-${Date.now()}`;
+      qrData = `VP-${foundVisitor._id}-${Date.now()}`;
     }
 
-    visitor = await Visitor.findByIdAndUpdate(
+    foundVisitor = await Visitor.findByIdAndUpdate(
       req.params.id,
-      { status, qrCode: qrData },
+      { status: status, qrCode: qrData },
       { new: true, runValidators: true }
     );
 
+    // Send email notification if approved
     if (status === 'approved') {
-      const downloadLink = `http://localhost:5000/api/visitors/${visitor._id}/download`;
+      const downloadLink = `http://localhost:5000/api/visitors/${foundVisitor._id}/download`;
+      
+      // Simple email message
       const message = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
-          <h2 style="color: #2563eb;">Pass Approved!</h2>
-          <p>Hi ${visitor.name},</p>
-          <p>Your host, <strong>${visitor.host.name}</strong>, has approved your visit.</p>
-          <p>Please click the button below to download your secure QR Pass. You will need to show this to security upon arrival.</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${downloadLink}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Download Digital Pass</a>
-          </div>
-          <p style="color: #6b7280; font-size: 0.9em;">If you have any questions, please contact your host directly.</p>
-        </div>
+        <h1>Pass Approved!</h1>
+        <p>Hi ${foundVisitor.name},</p>
+        <p>Your host ${foundVisitor.host.name} approved your visit.</p>
+        <p>Download your pass here: <a href="${downloadLink}">${downloadLink}</a></p>
       `;
       
       await sendEmail({
-        to: visitor.email,
-        subject: 'Your SecurePass is Ready',
+        to: foundVisitor.email,
+        subject: 'SecurePass Approved',
         html: message
       });
       
-      // Also send an SMS notification
-      if (visitor.phone) {
+      if (foundVisitor.phone) {
         await sendSMS({
-          to: visitor.phone,
-          message: `Hi ${visitor.name}, your SecurePass has been approved by ${visitor.host.name}. Download it here: ${downloadLink}`
+          to: foundVisitor.phone,
+          message: `Your pass is approved. Download: ${downloadLink}`
         });
       }
     }
 
     res.status(200).json({
       success: true,
-      data: visitor,
+      data: foundVisitor,
     });
   } catch (err) {
     console.log(err);
@@ -127,35 +131,41 @@ exports.updateStatus = async (req, res, next) => {
 
 exports.checkIn = async (req, res, next) => {
   try {
-    const { qrCode } = req.body;
+    const qrCode = req.body.qrCode;
 
-    const visitor = await Visitor.findOne({ qrCode });
+    // Find the visitor with this QR code
+    let visitorObj = await Visitor.findOne({ qrCode: qrCode });
 
-    if (!visitor) {
+    if (!visitorObj) {
       return res.status(404).json({ success: false, message: 'Invalid QR Code' });
     }
 
-    if (visitor.status !== 'approved') {
+    // Check if they are approved
+    if (visitorObj.status !== 'approved') {
       return res.status(400).json({ success: false, message: 'Visitor not approved' });
     }
 
-    const activeLog = await CheckLog.findOne({ visitor: visitor._id, checkOutTime: null });
-    if (activeLog) {
+    // Check if they already checked in today
+    let existingLog = await CheckLog.findOne({ visitor: visitorObj._id, checkOutTime: null });
+    
+    if (existingLog) {
       return res.status(400).json({ success: false, message: 'Visitor already checked in' });
     }
 
-    const log = await CheckLog.create({
-      visitor: visitor._id,
+    // Create a new log entry
+    const newLog = await CheckLog.create({
+      visitor: visitorObj._id,
       scannedBy: req.user.id,
       organization: req.user.organization,
     });
 
-    visitor.status = 'in';
-    await visitor.save();
+    // Update visitor status
+    visitorObj.status = 'in';
+    await visitorObj.save();
 
     res.status(200).json({
       success: true,
-      data: log,
+      data: newLog,
     });
   } catch (err) {
     console.log(err);
@@ -165,29 +175,30 @@ exports.checkIn = async (req, res, next) => {
 
 exports.checkOut = async (req, res, next) => {
   try {
-    const { qrCode } = req.body;
+    const qrCode = req.body.qrCode;
 
-    const visitor = await Visitor.findOne({ qrCode });
+    let visitorObj = await Visitor.findOne({ qrCode: qrCode });
 
-    if (!visitor) {
+    if (!visitorObj) {
       return res.status(404).json({ success: false, message: 'Invalid QR Code' });
     }
 
-    const log = await CheckLog.findOne({ visitor: visitor._id, checkOutTime: null });
+    // Find the active log to checkout
+    let activeLog = await CheckLog.findOne({ visitor: visitorObj._id, checkOutTime: null });
 
-    if (!log) {
+    if (!activeLog) {
       return res.status(400).json({ success: false, message: 'Visitor not checked in' });
     }
 
-    log.checkOutTime = Date.now();
-    await log.save();
+    activeLog.checkOutTime = Date.now();
+    await activeLog.save();
 
-    visitor.status = 'out';
-    await visitor.save();
+    visitorObj.status = 'out';
+    await visitorObj.save();
 
     res.status(200).json({
       success: true,
-      data: log,
+      data: activeLog,
     });
   } catch (err) {
     console.log(err);

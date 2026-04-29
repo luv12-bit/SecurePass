@@ -21,14 +21,14 @@ const SecurityDashboard = () => {
         scanner.clear();
         
         apiClient.post('/visitors/checkin', { qrCode: text })
-          .then(() => alert('Check-in Successful!'))
+          .then(() => toast.success('Check-in Successful!'))
           .catch((err) => {
             if (err.response?.data?.message?.includes('already checked in')) {
               apiClient.post('/visitors/checkout', { qrCode: text })
-                .then(() => alert('Check-out Successful!'))
-                .catch(() => alert('Checkout failed'));
+                .then(() => toast.success('Check-out Successful!'))
+                .catch(() => toast.error('Checkout failed'));
             } else {
-              alert('Invalid Pass');
+              toast.error('Invalid Pass');
             }
           });
       });
