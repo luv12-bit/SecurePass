@@ -193,4 +193,5 @@ const VisitorRegistration = () => {
         </form>
       </div>
     </div>
+};
 export default VisitorRegistration;
