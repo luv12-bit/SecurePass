@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem(CONFIG.TOKEN_KEY);
     
     if (token) {
       // Basic fetch without advanced try/catch wrappers
@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }) => {
         })
         .catch((err) => {
           console.log(err);
-          localStorage.removeItem('token');
+          localStorage.removeItem(CONFIG.TOKEN_KEY);
           setUser(null);
           setLoading(false);
         });
@@ -37,7 +37,7 @@ export const AuthProvider = ({ children }) => {
       const res = await apiClient.post('/auth/login', { email, password });
       
       // Save token directly
-      localStorage.setItem('token', res.data.token);
+      localStorage.setItem(CONFIG.TOKEN_KEY, res.data.token);
       setUser(res.data.user);
       
       toast.success('Login successful!');
@@ -57,7 +57,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem(CONFIG.TOKEN_KEY);
     setUser(null);
     navigate('/login');
   };
