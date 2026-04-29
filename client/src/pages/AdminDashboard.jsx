@@ -5,14 +5,19 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../services/api';
 
+// This is the main admin dashboard - it shows stats, a chart, and a table of all visitors
+
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
   const [visitors, setVisitors] = useState([]);
   const [loading, setLoading] = useState(true);
+  // these two states drive the search and filter in the visitor table
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const { user, logout } = useAuth();
 
+  // Fetch both stats and visitor list on page load
+  // I use Promise.all to fire both requests at the same time instead of waiting for one then the other
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -23,15 +28,17 @@ const AdminDashboard = () => {
         setStats(statsRes.data.data);
         setVisitors(visitorsRes.data.data);
       } catch (err) {
-        console.error(err);
+        console.error('Dashboard load error:', err);
         toast.error('Could not load data');
       } finally {
-        setLoading(false);
+        setLoading(false); // stop loading spinner no matter what
       }
     };
     fetchData();
   }, []);
 
+  // CSV export - I build the csv string manually and trigger a download
+  // this was tricky to figure out, I found the encodeURI trick on stackoverflow
   const handleExportCSV = async () => {
     try {
       let csvContent = "data:text/csv;charset=utf-8,";
@@ -47,12 +54,15 @@ const AdminDashboard = () => {
       link.setAttribute("download", "visitors.csv");
       document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link); // cleanup
       toast.success('Exported!');
     } catch (err) {
       toast.error('Failed to export');
     }
   };
 
+  // Filter the visitors list based on search text and status dropdown
+  // this runs every time searchTerm or statusFilter changes (React re-renders)
   const filteredVisitors = visitors.filter(v => {
     const matchesSearch = v.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                          v.email.toLowerCase().includes(searchTerm.toLowerCase());

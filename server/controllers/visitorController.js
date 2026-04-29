@@ -5,6 +5,8 @@ const { generateQR, generatePassPDF } = require('../utils/passGenerator');
 const sendEmail = require('../utils/sendEmail');
 const sendSMS = require('../utils/sendSMS');
 
+// Register a new visitor - this is a public route, anyone can submit a registration
+
 exports.registerVisitor = async (req, res, next) => {
   try {
     const visitorData = req.body;
@@ -16,6 +18,8 @@ exports.registerVisitor = async (req, res, next) => {
 
     const visitor = await Visitor.create(visitorData);
     
+    // Send real-time notification to the host employee via socket.io
+    // The host's userId matches a socket room they joined on login
     const io = req.app.get('io');
     if (io && visitor.host) {
       io.to(visitor.host.toString()).emit('new_visitor', {
@@ -26,7 +30,7 @@ exports.registerVisitor = async (req, res, next) => {
 
     res.status(201).json({ success: true, data: visitor });
   } catch (err) {
-    console.log(err);
+    console.log('Registration error:', err.message);
     res.status(400).json({ success: false, message: err.message });
   }
 };
@@ -44,14 +48,17 @@ exports.getVisitor = async (req, res, next) => {
   }
 };
 
+// Get all visitors - employees see only their own visitors, admins see all
 exports.getVisitors = async (req, res, next) => {
   try {
     let query;
 
+    // I check the role here to decide what data to return
+    // employees should only see visitors assigned to them
     if (req.user.role === 'employee') {
       query = Visitor.find({ host: req.user.id });
     } else {
-      query = Visitor.find();
+      query = Visitor.find(); // admin sees everything
     }
 
     const visitors = await query.populate('host', 'name email');
@@ -67,6 +74,7 @@ exports.getVisitors = async (req, res, next) => {
   }
 };
 
+// Update visitor status (approve/reject) - only the assigned host or an admin can do this
 exports.updateStatus = async (req, res, next) => {
   try {
     const status = req.body.status;
@@ -76,12 +84,14 @@ exports.updateStatus = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Visitor not found' });
     }
 
-    // Checking if the person updating is the host or an admin
+    // Security check: make sure only the host or admin can approve/reject
     if (foundVisitor.host._id.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(401).json({ success: false, message: 'Not authorized' });
     }
 
-    // Generate a QR code string if they are approved
+    // When approved, I generate a unique QR code string for this visitor
+    // format: VP-{visitorId}-{timestamp} so each code is unique
+    // this string will be embedded into the QR image in the PDF pass
     let qrData = '';
     if (status === 'approved') {
       qrData = `VP-${foundVisitor._id}-${Date.now()}`;
@@ -93,11 +103,10 @@ exports.updateStatus = async (req, res, next) => {
       { new: true, runValidators: true }
     );
 
-    // Send email notification if approved
+    // If approved, send an email to the visitor with their pass download link
     if (status === 'approved') {
       const downloadLink = `http://localhost:5000/api/visitors/${foundVisitor._id}/download`;
       
-      // Simple email message
       const message = `
         <h1>Pass Approved!</h1>
         <p>Hi ${foundVisitor.name},</p>
@@ -105,17 +114,28 @@ exports.updateStatus = async (req, res, next) => {
         <p>Download your pass here: <a href="${downloadLink}">${downloadLink}</a></p>
       `;
       
-      await sendEmail({
-        to: foundVisitor.email,
-        subject: 'SecurePass Approved',
-        html: message
-      });
-      
-      if (foundVisitor.phone) {
-        await sendSMS({
-          to: foundVisitor.phone,
-          message: `Your pass is approved. Download: ${downloadLink}`
+      // I wrap this in try-catch separately because I dont want email failure
+      // to block the approval itself
+      try {
+        await sendEmail({
+          to: foundVisitor.email,
+          subject: 'SecurePass Approved',
+          html: message
         });
+      } catch (emailErr) {
+        console.log('Email failed but approval went through:', emailErr.message);
+      }
+      
+      // Also try SMS if phone number exists
+      if (foundVisitor.phone) {
+        try {
+          await sendSMS({
+            to: foundVisitor.phone,
+            message: `Your pass is approved. Download: ${downloadLink}`
+          });
+        } catch (smsErr) {
+          console.log('SMS failed:', smsErr.message);
+        }
       }
     }
 
@@ -129,40 +149,42 @@ exports.updateStatus = async (req, res, next) => {
   }
 };
 
+// Check-in: security scans the QR code, we find the visitor and log their entry
 exports.checkIn = async (req, res, next) => {
   try {
     const qrCode = req.body.qrCode;
 
-    // Find the visitor with this QR code
+    // look up the visitor by their unique QR code string
     let visitorObj = await Visitor.findOne({ qrCode: qrCode });
 
     if (!visitorObj) {
       return res.status(404).json({ success: false, message: 'Invalid QR Code' });
     }
 
-    // Check if they are approved
+    // they must be approved before they can enter
     if (visitorObj.status !== 'approved') {
       return res.status(400).json({ success: false, message: 'Visitor not approved' });
     }
 
-    // Check if they already checked in today
+    // prevent double check-in: look for a log with no checkout time
     let existingLog = await CheckLog.findOne({ visitor: visitorObj._id, checkOutTime: null });
     
     if (existingLog) {
       return res.status(400).json({ success: false, message: 'Visitor already checked in' });
     }
 
-    // Create a new log entry
+    // create the check-in log entry
     const newLog = await CheckLog.create({
       visitor: visitorObj._id,
       scannedBy: req.user.id,
       organization: req.user.organization,
     });
 
-    // Update visitor status
+    // update their status to 'in' so the dashboard shows they're inside
     visitorObj.status = 'in';
     await visitorObj.save();
 
+    console.log(`Visitor ${visitorObj.name} checked IN`);
     res.status(200).json({
       success: true,
       data: newLog,
@@ -173,6 +195,7 @@ exports.checkIn = async (req, res, next) => {
   }
 };
 
+// Check-out: same as check-in but we find the active log and set the checkout time
 exports.checkOut = async (req, res, next) => {
   try {
     const qrCode = req.body.qrCode;
@@ -183,19 +206,21 @@ exports.checkOut = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Invalid QR Code' });
     }
 
-    // Find the active log to checkout
+    // find the log that has no checkout time - thats the active visit
     let activeLog = await CheckLog.findOne({ visitor: visitorObj._id, checkOutTime: null });
 
     if (!activeLog) {
       return res.status(400).json({ success: false, message: 'Visitor not checked in' });
     }
 
+    // set the checkout timestamp to now
     activeLog.checkOutTime = Date.now();
     await activeLog.save();
 
     visitorObj.status = 'out';
     await visitorObj.save();
 
+    console.log(`Visitor ${visitorObj.name} checked OUT`);
     res.status(200).json({
       success: true,
       data: activeLog,

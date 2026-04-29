@@ -6,16 +6,21 @@ import apiClient from '../services/api';
 import { useSocket } from '../hooks/useSocket';
 import CONFIG from '../config';
 
+// Employee dashboard - shows visitors assigned to this employee
+// they can approve or reject visitor requests from here
+
 const EmployeeDashboard = () => {
   const [visitors, setVisitors] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user, logout } = useAuth();
   const socket = useSocket();
 
+  // Fetch visitors assigned to this employee
   const fetchVisitors = async () => {
     try {
       const res = await apiClient.get('/visitors');
       setVisitors(res.data.data);
+      console.log('Loaded', res.data.data.length, 'visitors');
     } catch (err) {
       console.error(err);
       toast.error('Failed to load visitors');
@@ -24,45 +29,54 @@ const EmployeeDashboard = () => {
     }
   };
 
+  // load visitors when the page first opens
   useEffect(() => {
     fetchVisitors();
   }, []);
 
+  // Socket.io listener - when a new visitor registers and picks this employee as host,
+  // the server emits 'new_visitor' to this employee's room
+  // I re-fetch the list so the new visitor card appears without page refresh
   useEffect(() => {
     if (socket) {
       socket.on('new_visitor', (data) => {
+        console.log('Got real-time notification:', data.message);
         toast.success(data.message, {
           duration: 6000,
           position: 'top-right',
           icon: '🔔',
           style: { background: '#10b981', color: '#fff' },
         });
-        fetchVisitors(); 
+        fetchVisitors(); // refresh the list
       });
 
+      // cleanup: remove listener when component unmounts
       return () => {
         socket.off('new_visitor');
       };
     }
   }, [socket]);
 
+  // Called when employee clicks Approve or Reject
   const handleStatusUpdate = async (id, status) => {
     try {
       await apiClient.put(`/visitors/${id}/status`, { status });
       toast.success(`Visitor marked as ${status}`);
-      fetchVisitors(); 
+      fetchVisitors(); // refresh to show updated status
     } catch (err) {
-      console.error(err);
+      console.error('Status update failed:', err);
       toast.error('Action failed');
     }
   };
 
+  // Simple function to return a CSS color based on visitor status
+  // I use if-else instead of a switch because there are only 5 options
   const getStatusColor = (status) => {
     if (status === 'approved') return 'var(--success)';
     if (status === 'rejected') return 'var(--error)';
     if (status === 'in') return 'var(--accent)';
     if (status === 'out') return 'var(--secondary)';
-    return 'var(--warning)';
+    return 'var(--warning)'; // pending
   };
 
   if (loading) return <div>Loading dashboard...</div>;
